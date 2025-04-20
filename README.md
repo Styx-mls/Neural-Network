@@ -8,7 +8,7 @@ This framework features:
 - PyTorch-style layers (`Linear`, `ReLU`, `Dropout`, etc.)
 - Loss functions (`MSELoss`, `CrossEntropyLoss`)
 - Optimizers (`SGD`, `Adam`)
-- Model saving, loading
+- Model saving and loading
 - Full support for forward/backward chaining and composition via `Sequential`
 
 ---

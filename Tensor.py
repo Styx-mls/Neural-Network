@@ -27,7 +27,7 @@ class Tensor:
 
         def _backward():
 
-            if self.requires_grad:
+            if self.requires_grad and out.grad is not None:
 
                 self.grad = self.grad + out.grad if self.grad is not None else out.grad
 
@@ -49,7 +49,7 @@ class Tensor:
 
         def _backward():
 
-            if self.requires_grad:
+            if self.requires_grad and out.grad is not None:
 
                 self.grad = self.grad + (other.data * out.grad) if self.grad is not None else (other.data* out.grad)
 
@@ -69,7 +69,7 @@ class Tensor:
 
         def _backward():
             
-            if self.requires_grad:
+            if self.requires_grad and out.grad is not None:
 
                 self.grad= self.grad + (-out.grad) if self.grad is not None else -out.grad
 
@@ -93,7 +93,7 @@ class Tensor:
 
         def _backward():
 
-            if self.requires_grad:
+            if self.requires_grad and out.grad is not None:
 
                 self.grad = self.grad + (1/other.data * out.grad) if self.grad is not None else 1/other.data * out.grad
 
@@ -113,7 +113,7 @@ class Tensor:
 
         def _backward():
 
-            if self.requires_grad:
+            if self.requires_grad and out.grad is not None:
 
                 grad = exponent * self.data **(exponent - 1) * out.grad
                 self.grad = self.grad + grad if self.grad is not None else grad
@@ -132,7 +132,7 @@ class Tensor:
 
         def _backward():
         
-            if self.requires_grad:
+            if self.requires_grad and out.grad is not None:
 
                 grad = np.exp(self.data) * out.grad
                 self.grad = self.grad + grad if self.grad is not None else grad
@@ -149,7 +149,7 @@ class Tensor:
 
         def _backward():
 
-            if self.requires_grad:
+            if self.requires_grad and out.grad is not None:
 
                 grad = (1/self.data) * out.grad
                 self.grad = self.grad + grad if self.grad is not None else grad
@@ -166,7 +166,7 @@ class Tensor:
 
         def _backward():
 
-            if self.requires_grad:
+            if self.requires_grad and out.grad is not None:
 
                 grad = (self.data > 0).astype(np.float32) * out.grad
                 self.grad = self.grad + grad if self.grad is not None else grad
@@ -217,7 +217,7 @@ class Tensor:
 
         def _backward():
 
-            if self.requires_grad:
+            if self.requires_grad and out.grad is not None:
 
                 grad = out.grad @ other.data.T
                 self.grad = self.grad + grad if self.grad is not None else grad
@@ -260,7 +260,7 @@ class Tensor:
 
         def _backward():
 
-            if self.requires_grad:
+            if self.requires_grad and out.grad is not None:
 
                 grad = out.grad
                 expanded = grad if axis is None else np.expand_dims(grad, axis = axis) if not keepdims else grad
@@ -280,7 +280,7 @@ class Tensor:
 
         def _backward():
 
-            if self.requires_grad:
+            if self.requires_grad and out.grad is not None:
 
                 grad = out.grad
                 div = np.prod(self.data.shape) if axis is None else self.data.shape[axis]
@@ -302,7 +302,7 @@ class Tensor:
 
         def _backward():
 
-            if self.requires_grad:
+            if self.requires_grad and out.grad is not None:
 
                 grad = out.grad.reshape(self.data.shape)
                 self.grad = self.grad + grad if self.grad is not None else grad
@@ -331,7 +331,7 @@ class Tensor:
 
         def _backward():
 
-            if self.requires_grad:
+            if self.requires_grad and out.grad is not None:
 
                 grad = np.expand_dims(out.grad, axis = axis) if axis is not None else np.reshape(out.grad, self.data.shape)
                 self.grad = self.grad + grad if self.grad is not None else grad
@@ -351,7 +351,7 @@ class Tensor:
 
         def _backward():
 
-            if self.requires_grad:
+            if self.requires_grad and out.grad is not None:
 
                 grad = (2*(self.data - target.data))/ np.prod(self.data.shape)
                 self.grad = self.grad + grad if self.grad is not None else grad
@@ -371,7 +371,8 @@ class Tensor:
         out = Tensor(log_softmax_data, requires_grad=self.requires_grad)
 
         def _backward():
-            if self.requires_grad:
+            
+            if self.requires_grad and out.grad is not None:
                 grad = softmax - (np.exp(self.data) / np.sum(np.exp(self.data), axis=1, keepdims=True))
                 self.grad = self.grad + grad if self.grad is not None else grad
 
@@ -390,7 +391,8 @@ class Tensor:
 
         def _backward():
             
-            if self.requires_grad:
+            if self.requires_grad and out.grad is not None:
+                
                 exps = np.exp(self.data - np.max(self.data, axis=1, keepdims=True))
                 softmax = exps / np.sum(exps, axis=1, keepdims=True)
                 grad = softmax.copy()
@@ -411,7 +413,9 @@ class Tensor:
         out = Tensor(unsqueezed_data, requires_grad=self.requires_grad)
 
         def _backward():
-            if self.requires_grad:
+            
+            if self.requires_grad and out.grad is not None:
+                
                 grad = np.squeeze(out.grad, axis=axis)
                 self.grad = self.grad + grad if self.grad is not None else grad
 
@@ -427,7 +431,9 @@ class Tensor:
         out = Tensor(sig, requires_grad=self.requires_grad)
 
         def _backward():
-            if self.requires_grad:
+            
+            if self.requires_grad and out.grad is not None:
+                
                 grad = sig * (1 - sig) * out.grad
                 self.grad = self.grad + grad if self.grad is not None else grad
 
@@ -439,12 +445,13 @@ class Tensor:
     
 
     def tanh(self):
-      
+        
         tanh_val = np.tanh(self.data)
         out = Tensor(tanh_val, requires_grad=self.requires_grad)
 
         def _backward():
-            if self.requires_grad:
+            
+            if self.requires_grad and out.grad is not None:
                 grad = (1 - tanh_val ** 2) * out.grad
                 self.grad = self.grad + grad if self.grad is not None else grad
 
@@ -461,7 +468,8 @@ class Tensor:
         out = Tensor(clipped_data, requires_grad=self.requires_grad)
 
         def _backward():
-            if self.requires_grad:
+            
+            if self.requires_grad and out.grad is not None:
                 mask = (self.data >= min_val) & (self.data <= max_val)
                 grad = out.grad * mask.astype(np.float32)
                 self.grad = self.grad + grad if self.grad is not None else grad
@@ -489,7 +497,7 @@ class Tensor:
 
             def _backward():
 
-                if self.requires_grad:
+                if self.requires_grad and out.grad is not None:
 
                     self.grad = self.grad + out.grad * mask if x.grad is not None else out.grad * mask
 

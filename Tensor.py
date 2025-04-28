@@ -34,11 +34,9 @@ class Tensor:
 
             if other.requires_grad and out.grad is not None:
 
-                if out.grad.shape != other.data.shape:
-                    
-                    out.grad = out.grad.sum(axis=0)
-
-                other.grad = other.grad + out.grad if other.grad is not None else out.grad
+                grad_other = Tensor._reduce_broadcast(out.grad,other.data.shape)
+                
+                other.grad = other.grad + grad_other if other.grad is not None else grad_other
 
         out._backward = _backward
         out._prev = {self, other}
@@ -61,10 +59,7 @@ class Tensor:
             if other.requires_grad and out.grad is not None:
 
                 grad_other = self.data * out.grad
-
-                if grad_other.shape != other.data.shape:
-                    
-                    grad_other = grad_other.sum(axis=0)
+                grad_other = Tensor._reduce_broadcast(grad_other,other.data.shape)
 
                 other.grad = other.grad + grad_other if other.grad is not None else grad_other
 
@@ -111,10 +106,7 @@ class Tensor:
             if other.requires_grad and out.grad is not None:
 
                 grad_other = (-self.data/ other.data **2) * out.grad
-                
-                if grad_other.shape != other.data.shape:
-                    
-                    grad_other = grad_other.sum(axis=0)
+                grad_other = Tensor._reduce_broadcast(grad_other,other.data.shape)
 
                 other.grad = other.grad + grad_other if other.grad is not None else grad_other
 
@@ -239,12 +231,12 @@ class Tensor:
                 grad = out.grad @ other.data.T
                 self.grad = self.grad + grad if self.grad is not None else grad
 
-            if other.requires_grad:
+            if other.requires_grad and out.grad is not None:
 
                 grad = self.data.T @ out.grad
                 other.grad = other.grad + grad if other.grad is not None else grad
 
-        out.backward = _backward
+        out._backward = _backward
         out._prev = {self,other}
         out._op = "matmul"
 
@@ -259,10 +251,8 @@ class Tensor:
 
 
             if self.requires_grad and out.grad is not None:
-
-
-                self.grad = np.zeros_like(self.data)
-                self.grad = self.grad + out.grad.T if self.grad is not None else grad
+                
+                self.grad = self.grad + out.grad.T if self.grad is not None else out.grad.T
 
         out._backward = _backward
         out._prev = {self}
@@ -380,44 +370,27 @@ class Tensor:
         return out
 
 
-    def log_softmax(self):
-
-        exps = np.exp(self.data - np.max(self.data, axis=1, keepdims=True))
-        softmax = exps / np.sum(exps, axis=1, keepdims=True)
-        log_softmax_data = np.log(softmax + 1e-9)
-        out = Tensor(log_softmax_data, requires_grad=self.requires_grad)
-
-        def _backward():
-            
-            if self.requires_grad and out.grad is not None:
-                grad = softmax - (np.exp(self.data) / np.sum(np.exp(self.data), axis=1, keepdims=True))
-                self.grad = self.grad + grad if self.grad is not None else grad
-
-        out._backward = _backward
-        out._prev = {self}
-        out._op = "log_softmax"
-
-        return out
-
     def CrossEntropyLoss(self, target):
 
-        log_probs = self.log_softmax().data
+        exps = np.exp(self.data - np.max(self.data, axis = 1, keepdims = True))
+        softmax = exps/ np.sum(exps, axis = 1, keepdims = True)
         n = self.data.shape[0]
-        loss_val = -np.sum(log_probs[np.arange(n), target.data.astype(int)]) / n
-        out = Tensor(loss_val, requires_grad=self.requires_grad)
+        loss_val = -np.sum(np.log(softmax[np.arange(n), target.data.astype(int)])) / n
+        out = Tensor(loss_val, requires_grad = self.requires_grad)
+                      
 
         def _backward():
             
             if self.requires_grad and out.grad is not None:
-                
-                exps = np.exp(self.data - np.max(self.data, axis=1, keepdims=True))
-                softmax = exps / np.sum(exps, axis=1, keepdims=True)
-                grad = softmax.copy()
-                grad[np.arange(n), target.data.astype(int)] -= 1
-                grad = grad / n
-                grad = grad * out.grad
-                self.grad = self.grad + grad if self.grad is not None else grad
 
+                grad = softmax.copy()
+                idx = target.data.astype(int)
+                grad[np.arange(n), idx] -= 1
+                grad = grad / n * out.grad
+
+                self.grad = self.grad + grad if self.grad is not None else grad
+                
+                
         out._backward = _backward
         out._prev = {self, target}
         out._op = "cross_entropy"
@@ -517,11 +490,11 @@ class Tensor:
 
                 if self.requires_grad and out.grad is not None:
 
-                    self.grad = self.grad + out.grad * mask if x.grad is not None else out.grad * mask
+                    self.grad = self.grad + out.grad * mask if self.grad is not None else out.grad * mask
 
             out._backward = _backward
             out._prev = {self}
-            out._op = "droupout"
+            out._op = "dropout"
 
             return out
 
@@ -555,5 +528,20 @@ class Tensor:
     def __repr__(self):
 
         return f"Tensor(data={self.data}, requires_grad={self.requires_grad})"
+
+    @staticmethod
+    def _reduce_broadcast(grad, target_shape):
+
+        while grad.ndim > len(target_shape):
+
+                   grad = grad.sum(axis = 0)
+
+        for i, size in enumerate(target_shape):
+
+            if size == 1:
+
+                grad = grad.sum(axis = i, keepdims = True)
+
+        return grad
     
 

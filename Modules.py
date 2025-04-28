@@ -12,29 +12,25 @@ class Module:
     def parameters(self):
 
         params = []
-
-        for vals in self.__dict__.values():
-
-            if isinstance(vals, Module):
-
-                params = params + vals.parameters()
-
-            elif isinstance(vals, (list, tuple)):
-
-                for item in vals:
-
+        
+        for val in self.__dict__.values():
+            
+            if isinstance(val, Module):
+                
+                params += val.parameters()
+                
+            elif isinstance(val, (list, tuple)):
+                
+                for item in val:
+                    
                     if isinstance(item, Module):
-
-                        params = params + item.parameters()
-
-                    elif hasattr(item, "data") and hasattr(item, "grad"):
-
-                        params.append(item)
-
-            elif hasattr(vals, "data") and hasattr(vals, "grad"):
-
-                params.append(vals)
-
+                        
+                        params += item.parameters()
+                        
+            elif isinstance(val, Tensor) and val.isParam:
+                
+                params.append(val)
+                
         return params
 
     def zero_grad(self):
@@ -82,11 +78,23 @@ class Linear(Module):
 
         super().__init__()
         self.weight = Tensor(np.random.randn(out_features, in_features) * np.sqrt(2./ in_features), requires_grad = True)
+        self.weight.isParam = True
         self.bias = Tensor(np.zeros(out_features), requires_grad = True)
+        self.bias.isParam = True
 
     def forward(self,x):
 
-        return x.matmul(self.weight.transpose()) + self.bias
+        og_shape = x.data.shape
+        feature_dim = x.data.shape[-1]
+        x_flat = x.reshape((-1, feature_dim))
+
+        out = x_flat.matmul(self.weight.transpose()) + self.bias
+
+        new_shape = og_shape[:-1] + (self.weight.data.shape[0],)
+        out = out.reshape(new_shape)
+
+        return out
+        
 
 class ReLU(Module):
 
@@ -120,6 +128,18 @@ class Sequential(Module):
             x = layer(x)
 
         return x
+
+    def parameters(self):
+
+        params = []
+
+        for layer in self.layers:
+            
+            if isinstance(layer, Module):
+                
+                params = params + layer.parameters()
+
+        return params
 
 class Dropout(Module):
 
@@ -171,3 +191,5 @@ class no_grad:
     def __exit__(self, exc_type, exc_val, exc_tb):
 
         Tensor.grad_enabled = True
+
+

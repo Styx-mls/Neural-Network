@@ -35,6 +35,7 @@ class Tensor:
             if other.requires_grad and out.grad is not None:
 
                 if out.grad.shape != other.data.shape:
+                    
                     out.grad = out.grad.sum(axis=0)
 
                 other.grad = other.grad + out.grad if other.grad is not None else out.grad

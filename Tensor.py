@@ -14,6 +14,7 @@ class Tensor:
         self.data = data
         self.requires_grad = requires_grad and Tensor.grad_enabled
         self.grad = None
+        self.isParam = False
 
         self._backward = lambda: None
         self._prev = set()
@@ -31,7 +32,10 @@ class Tensor:
 
                 self.grad = self.grad + out.grad if self.grad is not None else out.grad
 
-            if other.requires_grad:
+            if other.requires_grad and out.grad is not None:
+
+                if out.grad.shape != other.data.shape:
+                    out.grad = out.grad.sum(axis=0)
 
                 other.grad = other.grad + out.grad if other.grad is not None else out.grad
 
@@ -53,9 +57,15 @@ class Tensor:
 
                 self.grad = self.grad + (other.data * out.grad) if self.grad is not None else (other.data* out.grad)
 
-            if other.requires_grad:
+            if other.requires_grad and out.grad is not None:
 
-                other.grad = other.grad + (self.data * out.grad) if other.grad is not None else (self.data * out.grad)
+                grad_other = self.data * out.grad
+
+                if grad_other.shape != other.data.shape:
+                    
+                    grad_other = grad_other.sum(axis=0)
+
+                other.grad = other.grad + grad_other if other.grad is not None else grad_other
 
         out._backward = _backward
         out._prev = {self,other}
@@ -97,9 +107,15 @@ class Tensor:
 
                 self.grad = self.grad + (1/other.data * out.grad) if self.grad is not None else 1/other.data * out.grad
 
-            if other.requires_grad:
+            if other.requires_grad and out.grad is not None:
 
-                other.grad = other.grad + ((-self.data/ other.data **2) * out.grad) if other.grad is not None else ((-self.data/ other.data **2) * out.grad)
+                grad_other = (-self.data/ other.data **2) * out.grad
+                
+                if grad_other.shape != other.data.shape:
+                    
+                    grad_other = grad_other.sum(axis=0)
+
+                other.grad = other.grad + grad_other if other.grad is not None else grad_other
 
         out._backward = _backward
         out._prev = {self, other}
@@ -398,6 +414,7 @@ class Tensor:
                 grad = softmax.copy()
                 grad[np.arange(n), target.data.astype(int)] -= 1
                 grad = grad / n
+                grad = grad * out.grad
                 self.grad = self.grad + grad if self.grad is not None else grad
 
         out._backward = _backward
@@ -507,12 +524,35 @@ class Tensor:
 
             return out
 
-        else: return self 
+        else: return self
+
+    def max_pool(self, axis = 1):
+
+        max_indices = np.argmax(self.data, axis = axis)
+        pooled_data = np.max(self.data, axis = axis)
+        out = Tensor(pooled_data, requires_grad = self.requires_grad)
+
+        def _backward():
+
+            if self.requires_grad and out.grad is not None:
+
+                grad = np.zeros_like(self.data)
+                idx = np.indices(max_indices.shape)
+                idx = list(idx)
+                idx.insert(axis, max_indices)
+
+                grad[tuple(idx)] = out.grad
+                self.grad = self.grad + grad if self.grad is not None else grad
+
+        out._backward = _backward
+        out._prev = {self}
+        out._op = "max_pool"
+
+        return out
 
 
     def __repr__(self):
 
         return f"Tensor(data={self.data}, requires_grad={self.requires_grad})"
     
-
 

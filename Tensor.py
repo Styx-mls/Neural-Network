@@ -375,7 +375,7 @@ class Tensor:
         exps = np.exp(self.data - np.max(self.data, axis = 1, keepdims = True))
         softmax = exps/ np.sum(exps, axis = 1, keepdims = True)
         n = self.data.shape[0]
-        loss_val = -np.sum(np.log(softmax[np.arange(n), target.data.astype(int)])) / n
+        loss_val = -np.sum(np.log(softmax[np.arange(n), target.data.astype(int)] + 1e-9)) / n
         out = Tensor(loss_val, requires_grad = self.requires_grad)
                       
 
